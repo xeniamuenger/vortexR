@@ -38,6 +38,7 @@ SSMD_matrix <- function(data,
                         scenario,
                         params=c("PExtinct", "Nextant", "Het", "Nalleles"),
                         yrs="max",
+						plotpops = c("Nall"),					 
                         ST=FALSE,
                         save2disk=TRUE,
                         dir_out="DataAnalysis/SSMD_matrix") {
@@ -70,13 +71,17 @@ SSMD_matrix <- function(data,
     # Set up headings for params and SE and SD
     params <- make.names(params)
     SE <- sapply(params, SEname)
-    if ("r.stoch" %in% params) {SE["r.stoch"] <- "SE.r."}
+    if ("stoch.r" %in% params) {SE["stoch.r"] <- "SE.r."}
 
     SD <- sapply(params, SDname)
-    if ("r.stoch" %in% params) {SD["r.stoch"] <- "SD.r."}
+    if ("stoch.r" %in% params) {SD["stoch.r"] <- "SD.r."}
 
-    pops.name <- unique(data$pop.name)
-
+    data$pop.name <- as.character(data$pop.name) # to select certain populations they need to be character instead of factor
+    data$pop.name <- str_trim(data$pop.name, "left")  # random whitespace inserted in string, to remove																														 																								 
+    if(plotpops == "Nall") {
+	    pops.name <- unique(data$pop.name)
+    } else pops.name <- plotpops
+	
     results <- vector("list", length(pops.name) * length(params) * length(yrs))
 
     df_nms <- expand.grid(pops.name, params, yrs)
@@ -86,9 +91,9 @@ SSMD_matrix <- function(data,
     for (popName in pops.name) {
         for (param in params) {
             for(yr in yrs)  {
-                setkeyv(data, c("Year", "pop.name"))
+                data.table::setkeyv(data, c("Year", "pop.name"))
                 substdat <- data[J(yr, popName), ]
-                setkey(substdat, scen.name)
+                data.table::setkey(substdat, scen.name)
                 sottra <- outer(substdat[[param]], substdat[[param]], "-")
                 sumsq <- outer(substdat[[SD[param]]]^2,
                              substdat[[SD[param]]]^2, "+")
