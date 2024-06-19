@@ -40,13 +40,19 @@ line_plot_year <- function(data,
     ## Dealing with no visible global variables
     scen.name <- NULL
     pop.name <- NULL
-    if (plotpops == "all") plotpops <- unique(data$pop.name)
-
+	
+	## selection of populations
+    populations <- make.names(plotpops)
+	if (length(plotpops) == 1) {
+		if (plotpops == "all") plotpops <- unique(data$pop.name)
+	} else {
+		plotpops <- as.factor(populations)
+	}
     # Set up headings for params
     params <- make.names(params)
 
     # set legend size
-    nscen <- length(unique(data$scen.name))
+    nscen <- length(scenario)
     if (nscen < 32) {
         legKeySize <- 7
         legTxtSize <- 7
@@ -62,7 +68,14 @@ line_plot_year <- function(data,
 
     fname_root <- if (is.null(scenario)) project else paste(project, scenario, sep = "_")
 
+	## to allow selection of scenario and population to plot
+	data$pop.name <- as.character(data$pop.name) # to select certain populations they need to be character instead of factor
+	data$pop.name <- str_trim(data$pop.name, "left")  # random whitespace inserted in string, to remove
+	data$scen.name <- as.character(data$scen.name)
+	data$scen.name <- as.factor(str_trim(data$scen.name, "left"))														   
     popstdat <- subset(data, pop.name %in% plotpops)
+	## to allo grepping all ST scenarios
+	popstdat <- subset(popstdat, scen.name %in% grep(scenario, data$scen.name, value = T))										   
 
     r.line_plot_year <- list()
     i <- 0
@@ -76,13 +89,15 @@ line_plot_year <- function(data,
         root <- paste0(fname_root, "_", param)
         g <- ggplot(popstdat, aes_string(x = "Year", y = param)) +
             geom_line(aes(color = scen.name)) +
-            facet_grid(pop.name ~ .)
+            facet_grid(rows = vars(pop.name))
         plot <- g +
+			theme_bw() +	  
             theme(panel.spacing = unit(0.2, "inches"),
                   legend.text = element_text(size = legTxtSize),
                   legend.key.size = unit(legKeySize, "mm")) +
+				  strip.text.y = element_text(angle = 0)) +				  
             scale_colour_discrete(name = "Scenarios")
-        print(plot)
+        #print(plot)
         r.line_plot_year[[i]] <- plot
         assign(paste(root, "_", "plot", sep = ""), g)
     }
@@ -126,7 +141,7 @@ line_plot_year_mid <- function(data,
                                project,
                                scenario,
                                yrmid = 1,
-                               params = c("PExtinct", "Nextant", "Het", "Nalleles"),
+                               params = c("PExtinct", "N.extant", "GeneDiv", "nAlleles"),
                                plotpops = c("all"),
                                save2disk = TRUE,
                                dir_out = "Plots") {
@@ -134,7 +149,13 @@ line_plot_year_mid <- function(data,
     Year <- NULL
     pop.name <- NULL
     scen.name <- NULL
-    if (plotpops == "all") plotpops <- unique(data$pop.name)
+	## to allow plotting of certain populations
+	populations <- make.names(plotpops)
+	if (length(plotpops) == 1) {
+		if (plotpops == "all") plotpops <- unique(data$pop.name)
+	} else {
+    plotpops <- as.factor(populations)
+	}								  
 
     # Set up headings for params
     params <- make.names(params)
@@ -156,7 +177,8 @@ line_plot_year_mid <- function(data,
 
     fname_root <- if (is.null(scenario)) project else paste0(project, "_", scenario)
 
-    yrmidstdat <- subset(data, Year <= yrmid & pop.name %in% plotpops)
+	data$pop.name <- as.character(data$pop.name) # to select certain populations they need to be character instead of factor
+	data$pop.name <- str_trim(data$pop.name, "left")  # random whitespace inserted in string, to remove
 
     r.line_plot_year_mid <- list()
     i <- 0
@@ -165,18 +187,23 @@ line_plot_year_mid <- function(data,
         pdf(paste0(dir_out, "/", fname_root, "_", "YearMidVsParams.pdf"))
     }
 
-    for (param in params) {
+    for (i in 1:length(params)) {
         i <- i + 1
-        root <- paste(fname_root, param, sep = "_")
-        g <- ggplot(yrmidstdat, aes_string(x = "Year", y = param)) +
+        root <- paste(fname_root, param[i], sep = "_")
+        g <- ggplot(yrmidstdat, aes_string(x = "Year", y = param[i])) +
             geom_line(aes(color = scen.name)) +
             facet_grid(pop.name ~ .)
         plot <- g +
+			ggtitle(params[i]) +
+			theme_bw() +			  
             theme(panel.spacing = unit(0.2, "inches"),
                   legend.text = element_text(size = legTxtSize),
-                  legend.key.size = unit(legKeySize, "mm")) +
+				  legend.position = "none",					 
+                  legend.key.size = unit(legKeySize, "mm"), 
+				  strip.text.y = element_text(angle = 0)) +
             scale_colour_discrete(name = "Scenarios")
-        print(plot)
+			facet_grid(rows = vars(pop.name))						   
+        #print(plot)
         r.line_plot_year_mid[[i]] <- plot
         assign(paste(root, "_", "Mid", "plot", sep = ""), g)
     }
@@ -187,7 +214,7 @@ line_plot_year_mid <- function(data,
              file = paste0(dir_out, "/", fname_root, "_", "YearMidVsParams.rda"))
     }
 
-    names(r.line_plot_year_mid) <- paste(fname_root, params, sep = "_")
+    names(r.line_plot_year_mid) <- paste(fname_root, params[i], sep = "_")
     return(r.line_plot_year_mid)
 }
 
@@ -237,7 +264,16 @@ dot_plot <- function(data,
     Year <- NULL
     pop.name <- NULL
 
-    if (plotpops == "all") plotpops <- unique(data$pop.name)
+    ## allows plotting of certain populations
+    populations <- make.names(plotpops)
+    if (length(plotpops) == 1) {
+      if (plotpops == "all") plotpops <- unique(data$pop.name)
+    } else {
+      plotpops <- as.factor(populations)
+    }
+  
+	## dealing with whitepsace issues in population names
+    plotpops <- sub("^X\\.", "", as.character(plotpops))  # if there is a whitespace it may be read in R as "X."
 
     # Set up headings for params
     params <- make.names(params)
@@ -262,10 +298,14 @@ dot_plot <- function(data,
     # Vector of SD names for params
     SDname <- function(parSD) paste("SD.", parSD, ".", sep = "")
     SD <- sapply(params, SDname)
-    if ("r.stoch" %in% params) SD["r.stoch"] <- "SD.r."
+    if ("stoch.r" %in% params) SD["stoch.R"] <- "SD.r."
+	if ("GeneDiv" %in% params) SD["GeneDiv"] <- "SD.GD."												  
 
     # dot plots by pops & yrs of mean params with (SD) bars
-    popstdat <- subset(data, pop.name %in% plotpops)
+	data$pop.name <- as.character(data$pop.name) # to select certain populations they need to be character instead of factor
+	data$pop.name <- str_trim(data$pop.name, "left")  # random whitespace inserted in string, to remove
+	plotpops <- str_trim(plotpops, "left")  # random whitespace inserted in string, to remove
+	popstdat <- filter(data, pop.name %in% plotpops)
 
     r.dot_plot <- list()
     if (save2disk) {
@@ -285,11 +325,14 @@ dot_plot <- function(data,
         d <- ggplot(yrstdat,
                     aes_string(color = setcolour, x = "scen.name", y = params[i])) +
             geom_point() +
-            theme(axis.text.x = element_text(angle = -90, size = 5, vjust = 1)) +
             xlab("Scenario") +
             facet_grid(pop.name ~ Year) +
             geom_errorbar(limits, width = 0.15) +
-            theme(panel.spacing = unit(0.2, "inches")) +
+			ggtitle(params[i]) + 
+			theme_bw() +
+			theme(panel.spacing = unit(0.2, "inches"),
+				axis.text.x = element_text(angle = -90, size = 5),
+				strip.text.y = element_text(angle = 0)) +									 
             if (setcolour == "scen.name") {
                 theme(legend.position = "none")
             } else {
@@ -297,7 +340,7 @@ dot_plot <- function(data,
                       legend.text = element_text(size = legTxtSize),
                       legend.key.size = unit(legKeySize, "mm"))
             }
-        print(d)
+        #print(d)
         assign(paste(root, "_", "dot_plot", sep = ""), d)
         r.dot_plot[[i]] <- d
     }
