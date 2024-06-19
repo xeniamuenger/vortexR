@@ -854,7 +854,7 @@ fit_regression <- function(data,
                            popn,
                            param = "N",
                            vs = c("GS1"),
-                           count_data = c("Nextant", "Nall", "Nalleles", "N",
+                           count_data = c("N.extant", "N.all", "Nalleles", "N",
                                           "AM", "AF", "Subadults", "Juv",
                                           "nDams", "nBroods", "nProgeny",
                                           "nImmigrants", "nEmigrants",
@@ -886,7 +886,7 @@ fit_regression <- function(data,
 
 
     if(!is.null(lookup)) {
-        data <- plyr::join(data, lookup, by = "Scenario", type = "left")
+        data <- dplyr::left_join(data, lookup, by = c("scen.name" = "Scenario"))
     }
 
     # convert data.table
@@ -900,11 +900,11 @@ fit_regression <- function(data,
         # Select the pop (with its number)
         pop <- paste0("pop", popn)
     } else {
-        pop <- levels(data$Population)[popn]
+        pop <- levels(data$pop.name)[popn]
     }
 
     # select pops
-    setkey(data, Population)
+    setkey(data, pop.name)
     data <- data[pop]
 
     xs <- paste(vs, collapse = "*")  # get ready the vs for the formula
