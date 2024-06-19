@@ -157,7 +157,7 @@ Nadults <- function(data,
     # Reshape df in long format
     tldata <- lapply(1:npops_noMeta, LongFormat)
 
-    lcensusMeans <- rbindlist(tldata)
+    lcensusMeans <- data.table::rbindlist(tldata)
 
     # If more than one pop, do Metapopulation calculations and rbind
     if (npops_noMeta > 1 & appendMeta) {
@@ -167,9 +167,9 @@ Nadults <- function(data,
         message("Done. Appending Metapopulation data to CensusMeans data frame...")
         gs <- names(lcensusMeans)[grep(pattern = "^GS", names(lcensusMeans))]
         meta[, `:=`(Population, rep(paste0("pop", npops_noMeta + 1), nrow(data)))]
-        setcolorder(meta, c("Scenario", "Year", "Population", census))
+        data.table::setcolorder(meta, c("Scenario", "Year", "Population", census))
         meta[, `:=`((gs), tldata[[1]][, gs, with = FALSE])]
-        lcensusMeans <- rbindlist(list(lcensusMeans, meta),
+        lcensusMeans <- data.table::rbindlist(list(lcensusMeans, meta),
                                   use.names = TRUE, fill = TRUE)
         message("Done!")
     }
@@ -182,9 +182,9 @@ Nadults <- function(data,
                   "See documentation for more information."))
 
     if (scenarios == "all") scenarios <- data[, unique(Scenario)]
-    setkey(lcensusMeans, Scenario)
+    data.table::setkey(lcensusMeans, Scenario)
     slcensusMeans <- lcensusMeans[J(scenarios), ]
-    setkey(slcensusMeans, Year)
+    data.table::setkey(slcensusMeans, Year)
     slcensusMeans <- slcensusMeans[.(yr0:round(yrt - gen)), ]
     slcensusMeans[, `:=`(Nad, sum(.SD)),
                   .SDcols = c("AM", "AF"),
