@@ -46,7 +46,7 @@ Ne <- function(data = NULL,
                fname = "Ne",
                dir_out = "DataAnalysis") {
     # Dealing with no visible global variables
-    Het <- NULL
+    GeneDiv <- NULL
     pop.name <- NULL
     J <- NULL
     Scenario <- NULL
@@ -59,10 +59,10 @@ Ne <- function(data = NULL,
         # From yr0+gen
         t0 <- round(yr0 + gen)
         tf <- yrt
-        Gt0 <- stdatDT[J(scenario, t0), "Het", with = FALSE]
-        Gtf <- stdatDT[J(scenario, tf), "Het", with = FALSE]
+        Gt0 <- stdatDT[J(scenario, t0), "GeneDiv", with = FALSE]
+        Gtf <- stdatDT[J(scenario, tf), "GeneDiv", with = FALSE]
         t <- (tf - t0)/gen
-        sq <- (Gtf[, Het]/Gt0[, Het])^(1/t)
+        sq <- (Gtf[, GeneDiv]/Gt0[, GeneDiv])^(1/t)
         den <- sq - 1
         effPopSize <- -(1/den) * (1/2)
         effPopSize <- t(as.data.frame(effPopSize))
