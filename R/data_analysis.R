@@ -331,6 +331,8 @@ pairwise <- function(data,
     naming.ssmd <- function(naming.ssmd) paste("SSMD", "_", naming.ssmd, yr, sep = "")
     kend <- function(tab.ranks) irr::kendall(tab.ranks[, -c(1:2), with = FALSE], TRUE)
 
+	# to avoid problems with the population names in case of whitespace
+    data$pop.name <- str_trim(data$pop.name, "both")																 
     # Flag (false) columns where all entries are NA
     FColsAllNA <- function(lranks) apply(lranks, 2, function(chk) !all(is.na(chk)))
 
@@ -356,9 +358,11 @@ pairwise <- function(data,
     # Set up headings for params and SE and SD
     params <- make.names(params)
     SE <- sapply(params, SEname)
-    if ("r.stoch" %in% params) SE["r.stoch"] <- "SE.r."
+    if ("stoch.r" %in% params) SE["stoch.r"] <- "SE.r."
     SD <- sapply(params, SDname)
-    if ("r.stoch" %in% params) SD["r.stoch"] <- "SD.r."
+    if ("stoch.r" %in% params) SD["stoch.r"] <- "SD.r."
+	
+    if ("GeneDiv" %in% params) SD["GeneDiv"] <- "SD.GD."										 
 
     # Create a dataframe for the base scenario.
     if (ST) {
@@ -375,7 +379,7 @@ pairwise <- function(data,
     coef <- numeric(0)
     scenario.name <- unique(data$scen.name)
     scenario.name <- scenario.name[!scenario.name == scen.name.base]
-    pops.name <- unique(data$pop.name)
+    pops.name <- unique(str_trim(data$pop.name, "both")) # to avoid issues with whitespace in the pop.name
     for (yr in yrs) {
         base <- numeric(0)
         for (popName in pops.name) {
@@ -429,12 +433,14 @@ pairwise <- function(data,
             rm(ttssmd.table)
         }
         if (exists("h.table.coef")) {
-            h.table.coef <- c(h.table.coef, sapply(params, naming.coef))
+			#! this caused a problem of duplicated params names...										   
+            #h.table.coef <- c(h.table.coef, sapply(params, naming.coef))
         } else {
             h.table.coef <- c("Scenario", "Population", sapply(params, naming.coef))
         }
         if (exists("h.ssmd.table")) {
-            h.ssmd.table <- c(h.ssmd.table, sapply(params, naming.ssmd))
+			#! this caused a problem of duplicated params names...													   
+            #h.ssmd.table <- c(h.ssmd.table, sapply(params, naming.ssmd))
         } else {
             h.ssmd.table <- c("Scenario", "Population", sapply(params, naming.ssmd))
         }
@@ -471,13 +477,13 @@ pairwise <- function(data,
 
     # Rank scenarios for each params by population based on sensitivity coefficients
     # and SSMD sensitivity coefficients
-    DT.table.coef <- data.table(table.coef)
-    setkey(DT.table.coef, Population, Scenario)
+    DT.table.coef <- data.table::data.table(table.coef)
+    data.table::setkey(DT.table.coef, Population, Scenario)
     ranks.sc <- DT.table.coef[, lapply(-abs(.SD), rank, na.last = "keep"),
                               by = Population,
                               .SDcols = h.coef]  # Rank
     ranks.sc[, `:=`(Scenario, DT.table.coef[, Scenario])]
-    setcolorder(ranks.sc, c("Population", "Scenario", h.coef))
+    data.table::setcolorder(ranks.sc, c("Population", "Scenario", h.coef))
 
     # split by pop in a list where each element is a pop
     lranks.sc.pops <- split(ranks.sc, ranks.sc[, Population])
@@ -490,7 +496,8 @@ pairwise <- function(data,
         ranks.sc.fin[[i]] <- lranks.sc.pops[[i]][, lsel[[i]], with = FALSE]
         popName <- as.character(ranks.sc.fin[[i]][1, Population])
         if (exists("popNames")) {
-            popNames <- c(popNames, popName)
+			#! this caused an issue of all popnames being duplicated
+            #popNames <- c(popNames, popName)
         } else {
             popNames <- popName
         }
@@ -498,13 +505,13 @@ pairwise <- function(data,
     names(ranks.sc.fin) <- popNames
 
     # ssmd
-    DT.ssmd <- data.table(ssmd.table)
-    setkey(DT.ssmd, Population, Scenario)
+    DT.ssmd <- data.table::data.table(ssmd.table)
+    data.table::setkey(DT.ssmd, Population, Scenario)
     ranks.ssmd <- DT.ssmd[, lapply(-abs(.SD), rank, na.last = "keep"),
                           by = Population,
                           .SDcols = h.ssmd]  # Rank
     ranks.ssmd[, `:=`(Scenario, DT.ssmd[, Scenario])]
-    setcolorder(ranks.ssmd, c("Population", "Scenario", h.ssmd))
+    data.table::setcolorder(ranks.ssmd, c("Population", "Scenario", h.ssmd))
 
     # split by pop in a list where each element is a pop
     lranks.ssmd.pops <- split(ranks.ssmd, ranks.ssmd[, Population])
@@ -518,7 +525,8 @@ pairwise <- function(data,
         # TODO : Generate popName with Lapply and remove if (exists())
         popName <- as.character(ranks.ssmd.fin[[i]][1, Population])
         if (exists("popNames")) {
-            popNames <- c(popNames, popName)
+			#! caused issue
+            #popNames <- c(popNames, popName)
         } else {
             popNames <- popName
         }
@@ -526,12 +534,24 @@ pairwise <- function(data,
     names(ranks.ssmd.fin) <- popNames
     kendall.out <- list(SC = NULL, SSMD = NULL)
     # NOTE : kendall function handles na listwise
+	for (n in 1:length(unique(names(ranks.sc.fin)))) {
+		if (dim(ranks.sc.fin[[n]])[2] == 2) {
+		  next
+		}												
     kendall.out$SC <- capture.output(
         cat("Rank comparison of sensitivity coefficients", "\n"),
-        lapply(ranks.sc.fin, kend))
-    kendall.out$SSMD <- capture.output(
-        cat("Rank comparison of SSMD", "\n"),
-        lapply(ranks.ssmd.fin, kend))
+	kend(ranks.sc.fin[[n]]))
+	}
+	
+	for (n in 1:length(unique(names(ranks.ssmd.fin)))) {
+		if (dim(ranks.ssmd.fin[[n]])[2] == 2) {
+		  next
+		}
+		kendall.out$SC <- capture.output(
+		  cat("Rank comparison of sensitivity coefficients", "\n"),
+		  kend(ranks.ssmd.fin[[n]]))
+	 }
+
     if (save2disk) {
         # write results
         df2disk(table.coef, dir_out, fname, ".coef.table")
@@ -557,43 +577,45 @@ pairwise <- function(data,
         h.coef <- h.table.coef[3:length(h.table.coef)]
         h.ssmd <- h.ssmd.table[3:length(h.ssmd.table)]
         for (SV in SVs) {
-            SVbase <- stbase[stbase$Year == 0, SV]
+            SVbase <- stbase[stbase$Year == 1, SV]  # Year == 1 for genetic loci needed
             select.4.SV <- !subpopsstdat[, SV] == SVbase
 
             # mean coef calculations
-            DT.coef <- data.table(table.coef)
-            setkey(DT.coef, Scenario)  # sort to match order in scen.4.SV
+            DT.coef <- data.table::data.table(table.coef)
+            data.table::setkey(DT.coef, Scenario)  # sort to match order in scen.4.SV
             DT.coef[, `:=`(scen.4.SV, select.4.SV)]  # add scen.4.SV
-            setkeyv(DT.coef, c("scen.4.SV", "Population"))
+            data.table::setkeyv(DT.coef, c("scen.4.SV", "Population"))
             # calculate mean by pop for that SV
             DT.coef <- DT.coef[J(TRUE), lapply(.SD, mean), by = Population, .SDcols = h.coef]
             DT.coef[, `:=`(SV, SV)]
 
             # mean ssmd calculations
-            DT.ssmd <- data.table(ssmd.table)
-            setkey(DT.ssmd, Scenario)
+            DT.ssmd <- data.table::data.table(ssmd.table)
+            data.table::setkey(DT.ssmd, Scenario)
             DT.ssmd[, `:=`(scen.4.SV, select.4.SV)]
-            setkey(DT.ssmd, scen.4.SV)
+            data.table::setkey(DT.ssmd, scen.4.SV)
             DT.ssmd <- DT.ssmd[J(TRUE), lapply(.SD, mean), by = Population, .SDcols = h.ssmd]
             DT.ssmd[, `:=`(SV, SV)]
 
             # appends mean calculations for both statistics & for each SV to table
             if (exists("mean.coef.table")) {
-                mean.coef.table <- rbind(mean.coef.table, DT.coef)
+			    # issue from above
+                #mean.coef.table <- rbind(mean.coef.table, DT.coef)  
             } else {
                 mean.coef.table <- DT.coef
             }
             if (exists("mean.ssmd.table")) {
-                mean.ssmd.table <- rbind(mean.ssmd.table, DT.ssmd)
+			    # issue from above
+                #mean.ssmd.table <- rbind(mean.ssmd.table, DT.ssmd)
             } else {
                 mean.ssmd.table <- DT.ssmd
             }
         }
 
-        setcolorder(mean.coef.table, c("Population", "SV", h.coef))
-        setkeyv(mean.coef.table, c("Population", "SV"))
-        setcolorder(mean.ssmd.table, c("Population", "SV", h.ssmd))
-        setkeyv(mean.ssmd.table, c("Population", "SV"))
+        data.table::setcolorder(mean.coef.table, c("Population", "SV", h.coef))
+        data.table::setkeyv(mean.coef.table, c("Population", "SV"))
+        data.table::setcolorder(mean.ssmd.table, c("Population", "SV", h.ssmd))
+        data.table::setkeyv(mean.ssmd.table, c("Population", "SV"))
 
         mean.ssmd.table.pvalues <- mean.ssmd.table[, lapply(.SD, pval), .SDcols = h.ssmd]
         mean.ssmd.table.pvalues <- cbind(mean.ssmd.table[, list(Population, SV)],
@@ -604,7 +626,7 @@ pairwise <- function(data,
         ranks.msc <- mean.coef.table[, lapply(-abs(.SD), rank, na.last = "keep"),
             by = Population, .SDcols = h.coef]  # Rank
         ranks.msc[, `:=`(SV, SVs)]  #Add SV col
-        setcolorder(ranks.msc, c("Population", "SV", h.coef))
+        data.table::setcolorder(ranks.msc, c("Population", "SV", h.coef))
         lranks.msc.pops <- split(ranks.msc, ranks.msc[, Population])
         lsel <- lapply(lranks.msc.pops, FColsAllNA)
         rm(popNames)
@@ -612,7 +634,10 @@ pairwise <- function(data,
         for (i in 1:length(lsel)) {
             ranks.msc.fin[[i]] <- lranks.msc.pops[[i]][, lsel[[i]], with = FALSE]
             popName <- as.character(ranks.msc.fin[[i]][1, Population])
-            if (exists("popNames")) popNames <- c(popNames, popName) else popNames <- popName
+            if (exists("popNames")) {
+			    # issue from above
+				#popNames <- c(popNames, popName) 
+			}  else popNames <- popName
         }
         names(ranks.msc.fin) <- popNames
 
@@ -621,7 +646,7 @@ pairwise <- function(data,
                                        by = Population,
                                        .SDcols = h.ssmd]  # Rank
         ranks.mssmd[, `:=`(SV, SVs)]  #Add SV col
-        setcolorder(ranks.mssmd, c("Population", "SV", h.ssmd))
+        data.table::setcolorder(ranks.mssmd, c("Population", "SV", h.ssmd))
         lranks.mssmd.pops <- split(ranks.mssmd, ranks.mssmd[, Population])
         lsel <- lapply(lranks.mssmd.pops, FColsAllNA)
         ranks.mssmd.fin <- list()
@@ -630,7 +655,8 @@ pairwise <- function(data,
             ranks.mssmd.fin[[i]] <- lranks.mssmd.pops[[i]][, lsel[[i]], with = FALSE]
             popName <- as.character(ranks.mssmd.fin[[i]][1, Population])
             if (exists("popNames")) {
-                popNames <- c(popNames, popName)
+                # issue from above
+				#popNames <- c(popNames, popName)
             } else {
                 popNames <- popName
             }
