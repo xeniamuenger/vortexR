@@ -53,8 +53,8 @@ Ne <- function(data = NULL,
 
     # Function definitions
     NeOne <- function(scenario) {
-        stdatDT <- data.table(data)
-        setkeyv(stdatDT, c("scen.name", "Year"))
+        stdatDT <- data.table::data.table(data)
+        data.table::setkeyv(stdatDT, c("scen.name", "Year"))
 
         # From yr0+gen
         t0 <- round(yr0 + gen)
@@ -73,7 +73,7 @@ Ne <- function(data = NULL,
     if (scenarios == "all") scenarios <- unique(data$scen.name)
 
     r.Ne <- lapply(scenarios, NeOne)
-    r.Ne <- rbindlist(r.Ne)
+    r.Ne <- data.table::rbindlist(r.Ne)
     r.Ne <- r.Ne[, `:=`(Scenario, scenarios)]
 
     if (save2disk) df2disk(r.Ne, dir_out, fname)
