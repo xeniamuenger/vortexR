@@ -60,7 +60,7 @@ rRec <- function(data,
     #  Dealing with no visible global variables
     scen.name <- NULL
     Year <- NULL
-    r.stoch <- NULL
+    stoch.r <- NULL
     SD.r. <- NULL
     rruns <- NULL
     SDruns <- NULL
@@ -75,18 +75,18 @@ rRec <- function(data,
     . <- NULL
 
     fname <- if (ST) paste(project, scenario, sep = "_") else project
-    data <- data.table(data)
+    data <- data.table::data.table(data)
     if (ST) scenario <- grep("(Base)", data[, unique(scen.name)], value = TRUE)
-    setkey(data, Year)
-    rTable <- data[J(yr0:yrt), .(rruns = r.stoch * runs, SDruns = SD.r. * runs),
+    data.table::Setkey(data, Year)
+    rTable <- data[J(yr0:yrt), .(rruns = stoch.r * runs, SDruns = SD.r. * runs),
         by = c("scen.name", "pop.name")]
     rTable <- rTable[, .(rRec = sum(rruns)/(runs * length(yr0:yrt)),
                          SD = sum(SDruns)/(runs * length(yr0:yrt))),
                      by = c("scen.name", "pop.name")]
-    setnames(rTable, c("scen.name", "pop.name"), c("Scenario", "Population"))
-    setkey(rTable, Scenario)
+    data.table::setnames(rTable, c("scen.name", "pop.name"), c("Scenario", "Population"))
+    data.table::setkey(rTable, Scenario)
     Base <- rTable[scenario, .(rRec, SD), by = Population]
-    setnames(Base, c("rRec", "SD"), c("base", "SDbase"))
+    data.table::setnames(Base, c("rRec", "SD"), c("base", "SDbase"))
     rTable <- merge(rTable, Base, by = "Population")
     rTable[, `:=`(SSMD, (rRec - base)/sqrt(SD^2 + SDbase^2))]
     rTable[, `:=`(pvalues, vortexR::pval(SSMD))]
