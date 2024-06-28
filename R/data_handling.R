@@ -632,32 +632,32 @@ lookup_table <- function(data,
 #'
 #' @param filename The fully qualified filename of a Vortex .dat file
 #' @param runs The number of simulation runs
-#' @param populations The number of populations in the simulation 
+#' @param populations The number of populations in the simulation (not including metapopulation)
 #' @param verbose Progress messages, default: FALSE
-#' @return A data.frame with data from one .gen 
+#' @return A data.frame with data from one .gen
 #' require(vortexRdata)
-																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																											
+
 
 collate_one_gen <- function(filename,
-                            runs, 
+                            runs,
                             populations,
                             verbose = FALSE){
 		lines <- readLines(filename)  ## need to adapt this to read multiple files (I think)
 
-  
+
   # Blocks of population data start with 'Population' with more than one population, a
   # last block 'Metapopulation' exists, but is ignored
   locLn <- grep(pattern = "^\\$   Locus", lines)
   locN <- length(locLn)
-  
+
   # Locus vector
   loc <- c(2:locN) # skipping locus 1 which is the default and more than 2 alleles
-  
+
   # create data frame of only biallelic loci
   gen_data <- as.data.frame(matrix(NA, nrow=0, ncol=6))
-  colnames(gen_data) <- c("Population", "Locus", "meanFrequency_A1", "meanFrequency_A2", 
+  colnames(gen_data) <- c("Population", "Locus", "meanFrequency_A1", "meanFrequency_A2",
                           "probPers_A1", "probPers_A2")
-  
+
   # looping over each locus and extracting the information to build the new data.frame
   pop <- populations
   popMeta <- 1
@@ -665,9 +665,9 @@ collate_one_gen <- function(filename,
     print(i)
     # Locus Number
     Locus <- i
-    
+
     if(pop != 1) {
-      popMeta <- pop + 1 # adding meta population to the count
+      popMeta <- pop + 1 # adding metapopulation to the count
     }
     for (p in 1:popMeta) {
       print(p)
@@ -711,7 +711,7 @@ collate_one_gen <- function(filename,
 #' on screen.
 #'
 #' @param project The Vortex project name to be imported
-#' @param populations The number of populations in the simulation
+#' @param populations The number of populations in the simulation (not including metapopulation)
 #' @param scenario The scenario name if ST, default: NULL
 #' @param dir_in The local folder containing Vortex files, default: NULL. If
 #'   not specified, will fall back to use current working directory.
@@ -720,16 +720,16 @@ collate_one_gen <- function(filename,
 #' @param verbose Progress messages, default: TRUE
 #' @inheritParams collate_one_gen
 #' @return a data.frame with data from all matching Vortex files or NULL
-#' @import vortexRdata
 
-ollate_gen <- function(project,
-                       populations, 
-                       scenario = NULL, 
+
+collate_gen <- function(project,
+                       populations,
+                       scenario = NULL,
                        dir_in = NULL,
-					   runs = NULL, 
+					   runs = NULL,
                        #dec_sep = ".",
                        save2disk = TRUE,
-                       dir_out = "ProcessedData", 
+                       dir_out = "ProcessedData",
                        verbose = TRUE) {
   if (is.null(scenario)) {
     fname <- project
@@ -738,16 +738,16 @@ ollate_gen <- function(project,
     fname <- paste(project, scenario, sep = "_")
     pat <- paste0("^", fname, ".*\\.gen$")
   }
-  
+
   if (is.null(dir_in)) dir_in <- getwd()
   setwd(dir_in)
-    
+
   files <- get_file_paths(path = dir_in,
                           pattern = pat,
                           fn_name = "collate_gen",
                           fname = fname,
                           verbose = verbose)
-  
+
   d <- data.frame()
   if (verbose) message("vortexR::collate_gen is parsing:")
   scen <- 0
